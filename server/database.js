@@ -48,6 +48,7 @@ const SQL = `
     is_recurring INTEGER DEFAULT 0,
     recurring_type TEXT,
     assignees TEXT,
+    auto_rollover INTEGER DEFAULT 0,
     is_completed INTEGER DEFAULT 0,
     completed_by INTEGER REFERENCES users(id),
     completed_at DATETIME,

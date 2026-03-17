@@ -25,10 +25,20 @@ export const GroupDetail = () => {
   const [editDueDate, setEditDueDate] = useState('');
   const [editDueTime, setEditDueTime] = useState('');
   const [editAssignees, setEditAssignees] = useState([]);
+  const [editAutoRollover, setEditAutoRollover] = useState(false);
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [editIsRecurring, setEditIsRecurring] = useState(false);
+  const [editRecurringType, setEditRecurringType] = useState('daily');
+  const [editWeeklyDays, setEditWeeklyDays] = useState([]);
+  const [editMonthlyDays, setEditMonthlyDays] = useState([]);
+  const [editUploading, setEditUploading] = useState(false);
   const [newContent, setNewContent] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
   const [newIsRecurring, setNewIsRecurring] = useState(false);
   const [newRecurringType, setNewRecurringType] = useState('daily');
+  const [newWeeklyDays, setNewWeeklyDays] = useState([]);
+  const [newMonthlyDays, setNewMonthlyDays] = useState([]);
+  const [newAutoRollover, setNewAutoRollover] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   
@@ -96,14 +106,26 @@ export const GroupDetail = () => {
     if (!newContent.trim()) return;
 
     try {
+      let finalRecurringType = null;
+      if (newIsRecurring) {
+        if (newRecurringType === 'weekly' && newWeeklyDays.length > 0) {
+          finalRecurringType = `weekly:${newWeeklyDays.join(',')}`;
+        } else if (newRecurringType === 'monthly' && newMonthlyDays.length > 0) {
+          finalRecurringType = `monthly:${newMonthlyDays.join(',')}`;
+        } else {
+          finalRecurringType = newRecurringType;
+        }
+      }
+      
       const memoData = {
         content: newContent,
         due_date: newDueDate || null,
         due_time: newDueTime || null,
         is_recurring: newIsRecurring,
-        recurring_type: newIsRecurring ? newRecurringType : null,
+        recurring_type: finalRecurringType,
         image_url: imageUrl || null,
         assignees: newAssignees.length > 0 ? JSON.stringify(newAssignees) : null,
+        auto_rollover: newAutoRollover,
       };
       await memosApi.create(id, memoData);
       setNewContent('');
@@ -111,6 +133,10 @@ export const GroupDetail = () => {
       setNewDueTime('');
       setNewAssignees([]);
       setNewIsRecurring(false);
+      setNewRecurringType('daily');
+      setNewWeeklyDays([]);
+      setNewMonthlyDays([]);
+      setNewAutoRollover(false);
       setImageUrl('');
       setShowAdd(false);
     } catch (err) {
@@ -133,10 +159,20 @@ export const GroupDetail = () => {
         },
         body: formData,
       });
-      const data = await response.json();
-      setImageUrl(data.url);
+      const text = await response.text();
+      try {
+        const data = JSON.parse(text);
+        if (data.url) {
+          setImageUrl(data.url);
+        } else {
+          setError(data.error || '图片上传失败');
+        }
+      } catch (parseErr) {
+        console.error('Response not JSON:', text);
+        setError('图片上传失败: ' + response.status);
+      }
     } catch (err) {
-      setError('图片上传失败');
+      setError('图片上传失败: ' + err.message);
     } finally {
       setUploading(false);
     }
@@ -169,20 +205,52 @@ export const GroupDetail = () => {
     setEditDueDate(memo.due_date || '');
     setEditDueTime(memo.due_time || '');
     setEditAssignees(memo.assignees ? JSON.parse(memo.assignees) : []);
+    setEditAutoRollover(memo.auto_rollover === 1);
+    setEditImageUrl(memo.image_url || '');
+    setEditIsRecurring(memo.is_recurring === 1);
+    
+    if (memo.recurring_type) {
+      if (memo.recurring_type.startsWith('weekly:')) {
+        setEditRecurringType('weekly');
+        setEditWeeklyDays(memo.recurring_type.split(':')[1].split(','));
+      } else if (memo.recurring_type.startsWith('monthly:')) {
+        setEditRecurringType('monthly');
+        setEditMonthlyDays(memo.recurring_type.split(':')[1].split(','));
+      } else {
+        setEditRecurringType(memo.recurring_type);
+        setEditWeeklyDays([]);
+        setEditMonthlyDays([]);
+      }
+    } else {
+      setEditRecurringType('daily');
+      setEditWeeklyDays([]);
+      setEditMonthlyDays([]);
+    }
   };
 
   const handleSaveEdit = async () => {
     if (!editContent.trim()) return;
     try {
+      let finalRecurringType = null;
+      if (editIsRecurring) {
+        if (editRecurringType === 'weekly' && editWeeklyDays.length > 0) {
+          finalRecurringType = `weekly:${editWeeklyDays.join(',')}`;
+        } else if (editRecurringType === 'monthly' && editMonthlyDays.length > 0) {
+          finalRecurringType = `monthly:${editMonthlyDays.join(',')}`;
+        } else {
+          finalRecurringType = editRecurringType;
+        }
+      }
+      
       const updateData = {
         content: editContent,
         due_date: editDueDate || null,
         due_time: editDueTime || null,
-        is_recurring: editingMemo?.is_recurring ? 1 : 0,
+        is_recurring: editIsRecurring ? 1 : 0,
+        recurring_type: finalRecurringType,
+        auto_rollover: editAutoRollover ? 1 : 0,
+        image_url: editImageUrl || null,
       };
-      if (editingMemo?.recurring_type) {
-        updateData.recurring_type = editingMemo.recurring_type;
-      }
       if (editAssignees.length > 0) {
         updateData.assignees = JSON.stringify(editAssignees);
       }
@@ -269,6 +337,12 @@ export const GroupDetail = () => {
             <h1 className="text-xl font-semibold text-gray-800">{group?.name}</h1>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
+            >
+              🔄 刷新
+            </button>
             <button
               onClick={() => setShowMembers(true)}
               className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
@@ -387,6 +461,57 @@ export const GroupDetail = () => {
                     <option value="monthly">每月</option>
                   </select>
                 )}
+                {newIsRecurring && newRecurringType === 'weekly' && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((day, idx) => (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          const dayNum = (idx + 1).toString();
+                          setNewWeeklyDays(prev => 
+                            prev.includes(dayNum) 
+                              ? prev.filter(d => d !== dayNum)
+                              : [...prev, dayNum].sort()
+                          );
+                        }}
+                        className={`px-2 py-1 text-xs rounded ${newWeeklyDays.includes((idx + 1).toString()) ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                      >
+                        {day}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {newIsRecurring && newRecurringType === 'monthly' && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {Array.from({length: 31}, (_, i) => (i + 1).toString()).map(day => (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          setNewMonthlyDays(prev => 
+                            prev.includes(day) 
+                              ? prev.filter(d => d !== day)
+                              : [...prev, day].sort((a, b) => parseInt(a) - parseInt(b))
+                          );
+                        }}
+                        className={`px-2 py-1 text-xs rounded ${newMonthlyDays.includes(day) ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                      >
+                        {day}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={newAutoRollover}
+                  onChange={(e) => setNewAutoRollover(e.target.checked)}
+                  className="rounded text-pink-500"
+                />
+                自动顺延
               </div>
 
               <div className="flex gap-2">
@@ -457,9 +582,20 @@ export const GroupDetail = () => {
                             </span>
                           )}
                           {memo.is_recurring === 1 && (
-                            <span>🔄 {memo.recurring_type === 'daily' ? '每天' : memo.recurring_type === 'weekly' ? '每周' : '每月'}</span>
+                            <span>🔄 {memo.recurring_type === 'daily' ? '每天' : memo.recurring_type === 'weekly' ? '每周' : memo.recurring_type === 'monthly' ? '每月' : memo.recurring_type}</span>
                           )}
-                          <span>👤 {memo.creator_nickname || memo.creator_username}</span>
+                          {memo.assignees ? (
+                            (() => {
+                              const assigneeIds = JSON.parse(memo.assignees);
+                              const assigneeNames = assigneeIds.map(id => {
+                                const member = group?.members?.find(m => m.id === parseInt(id));
+                                return member?.nickname || member?.username || '未知';
+                              });
+                              return assigneeNames.length > 0 ? <span>👥 {assigneeNames.join(', ')}</span> : <span>👤 {memo.creator_nickname || memo.creator_username}</span>;
+                            })()
+                          ) : (
+                            <span>👤 {memo.creator_nickname || memo.creator_username}</span>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -504,6 +640,18 @@ export const GroupDetail = () => {
                           <p className="text-gray-400 line-through">{memo.content}</p>
                           <div className="flex items-center gap-3 mt-2 text-sm text-gray-400">
                             {memo.completer_nickname && <span>✓ 被 {memo.completer_nickname} 完成</span>}
+                            {memo.assignees ? (
+                              (() => {
+                                const assigneeIds = JSON.parse(memo.assignees);
+                                const assigneeNames = assigneeIds.map(id => {
+                                  const member = group?.members?.find(m => m.id === parseInt(id));
+                                  return member?.nickname || member?.username || '未知';
+                                });
+                                return assigneeNames.length > 0 ? <span>👥 {assigneeNames.join(', ')}</span> : null;
+                              })()
+                            ) : (
+                              <span>👤 {memo.creator_nickname || memo.creator_username}</span>
+                            )}
                           </div>
                         </div>
                         <button
@@ -607,6 +755,134 @@ export const GroupDetail = () => {
                   ))}
                 </select>
               )}
+            </div>
+            <div className="flex items-center gap-2 mt-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editIsRecurring}
+                  onChange={(e) => setEditIsRecurring(e.target.checked)}
+                  className="rounded text-pink-500"
+                />
+                重复
+              </label>
+              {editIsRecurring && (
+                <select
+                  value={editRecurringType}
+                  onChange={(e) => setEditRecurringType(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
+                >
+                  <option value="daily">每天</option>
+                  <option value="weekly">每周</option>
+                  <option value="monthly">每月</option>
+                </select>
+              )}
+              {editIsRecurring && editRecurringType === 'weekly' && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((day, idx) => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        const dayNum = (idx + 1).toString();
+                        setEditWeeklyDays(prev => 
+                          prev.includes(dayNum) 
+                            ? prev.filter(d => d !== dayNum)
+                            : [...prev, dayNum].sort()
+                        );
+                      }}
+                      className={`px-2 py-1 text-xs rounded ${editWeeklyDays.includes((idx + 1).toString()) ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {editIsRecurring && editRecurringType === 'monthly' && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {Array.from({length: 31}, (_, i) => (i + 1).toString()).map(day => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        setEditMonthlyDays(prev => 
+                          prev.includes(day) 
+                            ? prev.filter(d => d !== day)
+                            : [...prev, day].sort((a, b) => parseInt(a) - parseInt(b))
+                        );
+                      }}
+                      className={`px-2 py-1 text-xs rounded ${editMonthlyDays.includes(day) ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="mt-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    setEditUploading(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('image', file);
+                      const response = await fetch(`${API_BASE_URL}/api/upload`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        },
+                        body: formData,
+                      });
+                      const text = await response.text();
+                      try {
+                        const data = JSON.parse(text);
+                        if (data.url) {
+                          setEditImageUrl(data.url);
+                        } else {
+                          setError(data.error || '图片上传失败');
+                        }
+                      } catch (parseErr) {
+                        console.error('Response not JSON:', text);
+                        setError('图片上传失败: ' + response.status);
+                      }
+                    } catch (err) {
+                      setError('图片上传失败: ' + err.message);
+                    } finally {
+                      setEditUploading(false);
+                    }
+                  }}
+                  className="hidden"
+                  disabled={editUploading}
+                />
+                <span className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-gray-50 hover:bg-gray-100">
+                  {editUploading ? '上传中...' : editImageUrl ? '更换图片' : '添加图片'}
+                </span>
+              </label>
+              {editImageUrl && (
+                <div className="mt-2 relative inline-block">
+                  <img src={editImageUrl} alt="预览" className="w-20 h-20 object-cover rounded-lg" />
+                  <button
+                    onClick={() => setEditImageUrl('')}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-3">
+              <input
+                type="checkbox"
+                checked={editAutoRollover}
+                onChange={(e) => setEditAutoRollover(e.target.checked)}
+                className="rounded text-pink-500"
+              />
+              自动顺延
             </div>
             <div className="flex gap-2 mt-4">
               <button

@@ -198,6 +198,12 @@ export const Groups = () => {
                 MemoShare
               </h1>
               <div className="flex items-center gap-4">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                >
+                  🔄 刷新
+                </button>
                 <span className="text-gray-600">{user?.nickname || user?.username}</span>
                 <button
                   onClick={() => setShowProfile(true)}

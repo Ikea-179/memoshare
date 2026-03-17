@@ -33,7 +33,7 @@ export const getMemos = (req, res) => {
 export const createMemo = (req, res, io) => {
   try {
     const { groupId } = req.params;
-    const { content, image_url, due_date, due_time, is_recurring, recurring_type, assignees } = req.body;
+    const { content, image_url, due_date, due_time, is_recurring, recurring_type, assignees, auto_rollover } = req.body;
 
     const membership = get('SELECT * FROM group_members WHERE group_id = ? AND user_id = ?', [groupId, req.user.id]);
     if (!membership) {
@@ -45,9 +45,9 @@ export const createMemo = (req, res, io) => {
     }
 
     const result = run(`
-      INSERT INTO memos (group_id, content, image_url, due_date, due_time, is_recurring, recurring_type, assignees, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [groupId, content, image_url || null, due_date || null, due_time || null, is_recurring ? 1 : 0, recurring_type || null, assignees || null, req.user.id]);
+      INSERT INTO memos (group_id, content, image_url, due_date, due_time, is_recurring, recurring_type, assignees, auto_rollover, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [groupId, content, image_url || null, due_date || null, due_time || null, is_recurring ? 1 : 0, recurring_type || null, assignees || null, auto_rollover ? 1 : 0, req.user.id]);
 
     const memo = get(`
       SELECT m.*, u.username as creator_username, u.nickname as creator_nickname
@@ -70,7 +70,7 @@ export const createMemo = (req, res, io) => {
 export const updateMemo = (req, res, io) => {
   try {
     const { id } = req.params;
-    let { content, image_url, due_date, due_time, is_recurring, recurring_type, assignees } = req.body;
+    let { content, image_url, due_date, due_time, is_recurring, recurring_type, assignees, auto_rollover } = req.body;
 
     if (content === undefined) content = '';
     if (image_url === undefined) image_url = null;
@@ -79,6 +79,7 @@ export const updateMemo = (req, res, io) => {
     if (is_recurring === undefined) is_recurring = 0;
     if (recurring_type === undefined) recurring_type = null;
     if (assignees === undefined) assignees = null;
+    if (auto_rollover === undefined) auto_rollover = 0;
 
     const memo = get('SELECT * FROM memos WHERE id = ?', [id]);
     if (!memo) {
@@ -92,9 +93,9 @@ export const updateMemo = (req, res, io) => {
 
     run(`
       UPDATE memos 
-      SET content = ?, image_url = ?, due_date = ?, due_time = ?, is_recurring = ?, recurring_type = ?, assignees = ?, updated_at = CURRENT_TIMESTAMP
+      SET content = ?, image_url = ?, due_date = ?, due_time = ?, is_recurring = ?, recurring_type = ?, assignees = ?, auto_rollover = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `, [content, image_url, due_date, due_time, is_recurring ? 1 : 0, recurring_type, assignees, id]);
+    `, [content, image_url, due_date, due_time, is_recurring ? 1 : 0, recurring_type, assignees, auto_rollover ? 1 : 0, id]);
 
     const updatedMemo = get(`
       SELECT m.*, u.username as creator_username, u.nickname as creator_nickname

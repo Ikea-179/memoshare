@@ -21,6 +21,7 @@ import { uploadImage } from './routes/upload.js';
 import { exportData, importData } from './routes/backup.js';
 import upload from './routes/upload.js';
 import { startReminderScheduler } from './services/reminder.js';
+import { startRolloverScheduler } from './services/rollover.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -108,6 +109,7 @@ const PORT = process.env.PORT || 3001;
 const startServer = async () => {
   await initDb();
   startReminderScheduler();
+  startRolloverScheduler();
   httpServer.listen(PORT, () => {
     console.log(`服务器运行在 http://localhost:${PORT}`);
   });
