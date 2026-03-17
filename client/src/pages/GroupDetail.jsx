@@ -16,6 +16,15 @@ export const GroupDetail = () => {
   const [error, setError] = useState('');
   
   const [showAdd, setShowAdd] = useState(false);
+  
+  const [newDueTime, setNewDueTime] = useState('');
+  const [newAssignees, setNewAssignees] = useState([]);
+  
+  const [editingMemo, setEditingMemo] = useState(null);
+  const [editContent, setEditContent] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editDueTime, setEditDueTime] = useState('');
+  const [editAssignees, setEditAssignees] = useState([]);
   const [newContent, setNewContent] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
   const [newIsRecurring, setNewIsRecurring] = useState(false);
@@ -90,13 +99,17 @@ export const GroupDetail = () => {
       const memoData = {
         content: newContent,
         due_date: newDueDate || null,
+        due_time: newDueTime || null,
         is_recurring: newIsRecurring,
         recurring_type: newIsRecurring ? newRecurringType : null,
         image_url: imageUrl || null,
+        assignees: newAssignees.length > 0 ? JSON.stringify(newAssignees) : null,
       };
       await memosApi.create(id, memoData);
       setNewContent('');
       setNewDueDate('');
+      setNewDueTime('');
+      setNewAssignees([]);
       setNewIsRecurring(false);
       setImageUrl('');
       setShowAdd(false);
@@ -150,6 +163,35 @@ export const GroupDetail = () => {
     }
   };
 
+  const handleEdit = (memo) => {
+    setEditingMemo(memo);
+    setEditContent(memo.content);
+    setEditDueDate(memo.due_date || '');
+    setEditDueTime(memo.due_time || '');
+    try {
+      setEditAssignees(memo.assignees ? JSON.parse(memo.assignees) : []);
+    } catch {
+      setEditAssignees([]);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editContent.trim()) return;
+    try {
+      await memosApi.update(editingMemo.id, {
+        content: editContent,
+        due_date: editDueDate || null,
+        due_time: editDueTime || null,
+        is_recurring: editingMemo.is_recurring,
+        recurring_type: editingMemo.recurring_type,
+        assignees: editAssignees.length > 0 ? JSON.stringify(editAssignees) : null,
+      });
+      setEditingMemo(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newMember.trim()) return;
@@ -184,16 +226,22 @@ export const GroupDetail = () => {
   const pendingMemos = memos.filter((m) => !m.is_completed);
   const completedMemos = memos.filter((m) => m.is_completed);
 
-  const formatDate = (date) => {
+  const formatDate = (date, time) => {
     if (!date) return '';
     const d = new Date(date);
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    if (d.toDateString() === today.toDateString()) return '今天';
-    if (d.toDateString() === tomorrow.toDateString()) return '明天';
-    return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    let dateStr = '';
+    if (d.toDateString() === today.toDateString()) dateStr = '今天';
+    else if (d.toDateString() === tomorrow.toDateString()) dateStr = '明天';
+    else dateStr = d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    
+    if (time) {
+      return `${dateStr} ${time}`;
+    }
+    return dateStr;
   };
 
   const isOverdue = (date) => {
@@ -292,6 +340,31 @@ export const GroupDetail = () => {
                   className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
                 />
 
+                <input
+                  type="time"
+                  value={newDueTime}
+                  onChange={(e) => setNewDueTime(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
+                />
+
+                {group?.members && group.members.length > 0 && (
+                  <select
+                    multiple
+                    value={newAssignees}
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.selectedOptions, option => option.value);
+                      setNewAssignees(selected);
+                    }}
+                    className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm min-w-[120px]"
+                  >
+                    {group.members.map(member => (
+                      <option key={member.id} value={member.id}>
+                        {member.nickname || member.username}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 <label className="flex items-center gap-2 text-sm text-gray-600">
                   <input
                     type="checkbox"
@@ -328,6 +401,8 @@ export const GroupDetail = () => {
                     setShowAdd(false);
                     setNewContent('');
                     setNewDueDate('');
+                    setNewDueTime('');
+                    setNewAssignees([]);
                     setImageUrl('');
                   }}
                   className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"
@@ -377,7 +452,7 @@ export const GroupDetail = () => {
                         <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
                           {memo.due_date && (
                             <span className={isOverdue(memo.due_date) ? 'text-red-500' : ''}>
-                              📅 {formatDate(memo.due_date)}
+                              📅 {formatDate(memo.due_date, memo.due_time)}
                             </span>
                           )}
                           {memo.is_recurring === 1 && (
@@ -386,12 +461,20 @@ export const GroupDetail = () => {
                           <span>👤 {memo.creator_nickname || memo.creator_username}</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDelete(memo.id)}
-                        className="text-gray-300 hover:text-red-500 transition"
-                      >
-                        🗑
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(memo)}
+                          className="text-gray-300 hover:text-pink-500 transition"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleDelete(memo.id)}
+                          className="text-gray-300 hover:text-red-500 transition"
+                        >
+                          🗑
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -479,6 +562,65 @@ export const GroupDetail = () => {
                 </form>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {editingMemo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditingMemo(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-gray-800 mb-4">编辑备忘录</h3>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:border-pink-400 focus:ring-2 focus:ring-pink-100 outline-none resize-none"
+              rows={3}
+            />
+            <div className="flex flex-wrap items-center gap-3 mt-3">
+              <input
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
+              />
+              <input
+                type="time"
+                value={editDueTime}
+                onChange={(e) => setEditDueTime(e.target.value)}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
+              />
+              {group?.members && group.members.length > 0 && (
+                <select
+                  multiple
+                  value={editAssignees}
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.selectedOptions, option => option.value);
+                    setEditAssignees(selected);
+                  }}
+                  className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm min-w-[120px]"
+                >
+                  {group.members.map(member => (
+                    <option key={member.id} value={member.id}>
+                      {member.nickname || member.username}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleSaveEdit}
+                className="flex-1 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+              >
+                保存
+              </button>
+              <button
+                onClick={() => setEditingMemo(null)}
+                className="flex-1 py-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"
+              >
+                取消
+              </button>
+            </div>
           </div>
         </div>
       )}
