@@ -70,7 +70,15 @@ export const createMemo = (req, res, io) => {
 export const updateMemo = (req, res, io) => {
   try {
     const { id } = req.params;
-    const { content, image_url, due_date, due_time, is_recurring, recurring_type, assignees } = req.body;
+    let { content, image_url, due_date, due_time, is_recurring, recurring_type, assignees } = req.body;
+
+    if (content === undefined) content = '';
+    if (image_url === undefined) image_url = null;
+    if (due_date === undefined) due_date = null;
+    if (due_time === undefined) due_time = null;
+    if (is_recurring === undefined) is_recurring = 0;
+    if (recurring_type === undefined) recurring_type = null;
+    if (assignees === undefined) assignees = null;
 
     const memo = get('SELECT * FROM memos WHERE id = ?', [id]);
     if (!memo) {

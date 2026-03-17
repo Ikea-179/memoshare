@@ -92,7 +92,12 @@ export const saveDb = () => {
 export const getDb = () => db;
 
 export const run = (sql, params = []) => {
-  db.run(sql, params);
+  const stmt = db.prepare(sql);
+  if (params.length > 0) {
+    stmt.bind(params);
+  }
+  stmt.step();
+  stmt.free();
   const lastId = db.exec("SELECT last_insert_rowid() as id");
   const lastInsertRowid = lastId[0]?.values[0]?.[0] || 0;
   saveDb();
@@ -101,7 +106,9 @@ export const run = (sql, params = []) => {
 
 export const get = (sql, params = []) => {
   const stmt = db.prepare(sql);
-  stmt.bind(params);
+  if (params.length > 0) {
+    stmt.bind(params);
+  }
   if (stmt.step()) {
     const row = stmt.getAsObject();
     stmt.free();
@@ -114,7 +121,9 @@ export const get = (sql, params = []) => {
 export const all = (sql, params = []) => {
   const results = [];
   const stmt = db.prepare(sql);
-  stmt.bind(params);
+  if (params.length > 0) {
+    stmt.bind(params);
+  }
   while (stmt.step()) {
     results.push(stmt.getAsObject());
   }

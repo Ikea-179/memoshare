@@ -168,24 +168,25 @@ export const GroupDetail = () => {
     setEditContent(memo.content);
     setEditDueDate(memo.due_date || '');
     setEditDueTime(memo.due_time || '');
-    try {
-      setEditAssignees(memo.assignees ? JSON.parse(memo.assignees) : []);
-    } catch {
-      setEditAssignees([]);
-    }
+    setEditAssignees(memo.assignees ? JSON.parse(memo.assignees) : []);
   };
 
   const handleSaveEdit = async () => {
     if (!editContent.trim()) return;
     try {
-      await memosApi.update(editingMemo.id, {
+      const updateData = {
         content: editContent,
         due_date: editDueDate || null,
         due_time: editDueTime || null,
-        is_recurring: editingMemo.is_recurring,
-        recurring_type: editingMemo.recurring_type,
-        assignees: editAssignees.length > 0 ? JSON.stringify(editAssignees) : null,
-      });
+        is_recurring: editingMemo?.is_recurring ? 1 : 0,
+      };
+      if (editingMemo?.recurring_type) {
+        updateData.recurring_type = editingMemo.recurring_type;
+      }
+      if (editAssignees.length > 0) {
+        updateData.assignees = JSON.stringify(editAssignees);
+      }
+      await memosApi.update(editingMemo.id, updateData);
       setEditingMemo(null);
     } catch (err) {
       setError(err.message);
