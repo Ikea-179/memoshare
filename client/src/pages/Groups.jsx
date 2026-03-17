@@ -145,11 +145,21 @@ export const Groups = () => {
                       <option value="both">截止前一天 & 当天早上</option>
                       <option value="day_before">截止前一天早上</option>
                       <option value="day_of">截止当天早上</option>
+                      <option value="15min">15分钟前</option>
+                      <option value="30min">30分钟前</option>
+                      <option value="1h">1小时前</option>
+                      <option value="2h">2小时前</option>
+                      <option value="morning">当天早上9点</option>
                     </select>
                     <p className="text-xs text-gray-500 mt-1">
-                      {reminderTime === 'both' && '将在截止前一天和当天早上9点发送提醒'}
-                      {reminderTime === 'day_before' && '将在截止前一天早上9点发送提醒'}
-                      {reminderTime === 'day_of' && '将在截止当天早上9点发送提醒'}
+                      {reminderTime === 'both' && '将在截止前一天和当天早上8点发送提醒'}
+                      {reminderTime === 'day_before' && '将在截止前一天早上8点发送提醒'}
+                      {reminderTime === 'day_of' && '将在截止当天早上8点发送提醒'}
+                      {reminderTime === '15min' && '将在截止前15分钟发送提醒'}
+                      {reminderTime === '30min' && '将在截止前30分钟发送提醒'}
+                      {reminderTime === '1h' && '将在截止前1小时发送提醒'}
+                      {reminderTime === '2h' && '将在截止前2小时发送提醒'}
+                      {reminderTime === 'morning' && '将在当天早上8点发送提醒'}
                     </p>
                   </div>
                 )}

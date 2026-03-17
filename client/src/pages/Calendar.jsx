@@ -52,10 +52,13 @@ export const CalendarPage = () => {
   };
 
   const getMemosForDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().split('T')[0];
     return allMemos.filter(memo => {
       if (!memo.due_date) return false;
-      const dueDate = memo.due_date.split('T')[0];
+      let dueDate = memo.due_date;
+      if (dueDate.includes('T')) {
+        dueDate = dueDate.split('T')[0];
+      }
       
       if (memo.is_recurring) {
         if (memo.recurring_type === 'daily') return true;
